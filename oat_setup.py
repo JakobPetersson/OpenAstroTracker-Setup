@@ -390,14 +390,14 @@ arg_parser.add_argument(
     'latitude',
     type=str,
     action='store',
-    help='The latitude (degrees*minutes), positive northern hemisphere, negative (-) for southern'
+    help='The latitude <sign><deg>*<min>, positive (+) for northern hemisphere, negative (-) for southern'
 )
 
 arg_parser.add_argument(
     'longitude',
     type=str,
     action='store',
-    help='The longitude (degrees*minutes), positive eastern hemisphere, negative (-) for western'
+    help='The longitude <sign><deg>*<min>, positive (+) for eastern hemisphere, negative (-) for western'
 )
 
 arg_parser.add_argument(

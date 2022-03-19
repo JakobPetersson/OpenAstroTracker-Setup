@@ -18,8 +18,8 @@ usage: oat_setup.py [-h] latitude longitude [serial_port]
 OAT Setup
 
 positional arguments:
-  latitude     The latitude (decimal degrees), positive northern hemisphere, negative (-) for southern
-  longitude    The longitude (decimal degrees), positive eastern hemisphere, negative (-) for western
+  latitude     The latitude <sign><deg>*<min>, positive (+) for northern hemisphere, negative (-) for southern
+  longitude    The longitude <sign><deg>*<min>, positive (+) for eastern hemisphere, negative (-) for western
   serial_port  The serial port path (default: /dev/ttyUSB0)
 
 optional arguments:
@@ -29,5 +29,5 @@ optional arguments:
 ### Example
 
 ```shell
-./oat_setup.py 59.33 18.07 /dev/ttyUSB0
+./oat_setup.py "+59.19" "+18.04" /dev/ttyUSB0
 ```
