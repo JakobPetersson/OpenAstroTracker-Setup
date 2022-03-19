@@ -441,9 +441,9 @@ oat_set_site_longitude(serial_port, args.longitude)
 print('')
 print('- Set Site Local Time -')
 now = datetime.now().astimezone()
+oat_set_site_utc_offset(serial_port, now)
 oat_set_site_local_time(serial_port, now)
 oat_set_site_date(serial_port, now)
-oat_set_site_utc_offset(serial_port, now)
 
 #
 # AutoHome RA
