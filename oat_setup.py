@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
+import math
 import os
+import re
 import serial
 from datetime import datetime
 
@@ -87,6 +89,131 @@ def close_oat_connection(serial_port):
     print('OAT is disconnected!')
 
 
+def oat_set_site_latitude(serial_port, latitude):
+    pat = re.compile(r"^[-\+][0-9][0-9]\*[0-9][0-9]$")
+
+    if not re.fullmatch(pat, latitude):
+        print('Error, latitude not in correct format')
+        quit()
+
+    lat_split = latitude.split('*')
+    
+    lat_deg = lat_split[0]
+    lat_deg_int = int(lat_deg)
+    
+    lat_min = lat_split[1]
+    lat_min_int = int(lat_min)
+
+    if ((lat_deg_int > 90 or lat_deg_int < -90) or
+        (lat_deg_int == 90 and lat_min_int > 0) or
+        (lat_min_int > 60)):
+        print('Error, latitude not in correct value range')
+        quit()
+
+    #
+    # :StsDD*MM#
+    #      Description:
+    #        Set Site Latitude
+    #      Information:
+    #        This sets the latitude of the location of the mount.
+    #      Returns:
+    #        "1" if successfully set
+    #        "0" otherwise
+    #      Parameters:
+    #        "s" is the sign ('+' or '-')
+    #        "DD" is the degree (90 or less)
+    #        "MM" is minutes
+    #
+    if not oat_send_command_status(serial_port, f":St{latitude}#"):
+        print('Error setting Site Latitude...')
+        quit()
+
+    # :Gt#
+    #      Description:
+    #        Get Site Latitude
+    #      Returns:
+    #        "sDD*MM#"
+    #      Parameters:
+    #        "s" is + or -
+    #        "DD" is the latitude in degrees
+    #        "MM" the minutes
+    site_latitude_response = oat_send_command_string(serial_port,':Gt#')
+
+    if site_latitude_response != latitude:
+        print(f"Error verifying Site Latitude... expected [{latitude}], got [{site_latitude_response}]")
+        quit()
+
+    print(f"Site Latitude set to: {lat_deg}\u00b0{lat_min}' ({site_latitude_response})")
+
+
+def oat_set_site_longitude(serial_port, longitude):
+    pat = re.compile(r"^[-\+]([0-9])?[0-9][0-9]\*[0-9][0-9]$")
+
+    if not re.fullmatch(pat, longitude):
+        print('Error, longitude not in correct format')
+        quit()
+
+    long_split = longitude.split('*')
+
+    long_deg = long_split[0]
+    long_deg_int = int(long_deg)
+    long_min = long_split[1]
+    long_min_int = int(long_min)
+
+    if ((long_deg_int > 180 or long_deg_int < -180) or
+        (long_deg_int == 180 and long_min_int > 0) or
+        (long_deg_int == -180 and long_min_int > 0) or
+        (long_min_int > 60)):
+        print('Error, longitude not in correct value range')
+        quit()
+
+    long_conv = math.modf((10800 - ((long_deg_int * 60.0) + long_min_int))/60) 
+    long_conv_deg = (int(long_conv[1]))
+    long_conv_deg_str = str(long_conv_deg)
+    long_conv_deg_zero = long_conv_deg_str.zfill(3)
+    long_conv_min_cal = int((long_conv[0]) * 60)
+    long_conv_min_cal_str = str(long_conv_min_cal)
+    long_conv_min_cal_zero = long_conv_min_cal_str.zfill(2)
+
+    # 180deg 00min 'minus' your LONG if positive or 'plus' if negative
+    long_abs = str(long_conv_deg_zero) + '*' + str(long_conv_min_cal_zero)
+
+    # :SgDDD*MM#
+    #      Description:
+    #        Set Site Longitude
+    #      Information:
+    #        This sets the longitude of the location of the mount.
+    #      Returns:
+    #        "1" if successfully set
+    #        "0" otherwise
+    #      Parameters:
+    #        "DDD" the nmber of degrees (0 to 360)
+    #        "MM" is minutes
+    #      Remarks:
+    #        Longitudes are from 0 to 360 going WEST. so 179W is 359 and 179E is 1.
+    if not oat_send_command_status(serial_port, f":Sg{long_abs}#"):
+        print('Error setting Site Longitude...')
+        quit()
+
+    # :Gg#
+    #      Description:
+    #        Get Site Longitude
+    #      Returns:
+    #        "DDD*MM#"
+    #      Parameters:
+    #        "DDD" is the longitude in degrees
+    #        "MM" the minutes
+    #      Remarks:
+    #        Longitudes are from 0 to 360 going WEST. so 179W is 359 and 179E is 1.
+    site_longitude_response = oat_send_command_string(serial_port, ':Gg#')
+
+    if site_longitude_response != long_abs:
+        print(f"Error verifying Site Longitude... expected [{long_abs}], got [{site_longitude_response}]")
+        quit()
+
+    print(f"Site Longitude set to: {long_deg}\u00b0{long_min}' ({site_longitude_response})")
+
+
 def oat_set_site_local_time(serial_port, current_datetime):
     formatted_time = current_datetime.strftime('%H:%M:%S')
 
@@ -149,7 +276,7 @@ def oat_set_site_date(serial_port, current_datetime):
     current_date_response = oat_send_command_string(serial_port, ':GC#')
 
     if current_date_response != formatted_date:
-        print(f"Error verifying Site Date... expected [{formatted_date}#], got [{current_date_response}]")
+        print(f"Error verifying Site Date... expected [{formatted_date}], got [{current_date_response}]")
         quit()
 
     print(f"Site Date set to: {current_date_response}")
@@ -261,16 +388,16 @@ arg_parser = argparse.ArgumentParser(description='OAT Setup')
 
 arg_parser.add_argument(
     'latitude',
-    type=float,
+    type=str,
     action='store',
-    help='The latitude (decimal degrees), positive northern hemisphere, negative (-) for southern'
+    help='The latitude (degrees*minutes), positive northern hemisphere, negative (-) for southern'
 )
 
 arg_parser.add_argument(
     'longitude',
-    type=float,
+    type=str,
     action='store',
-    help='The longitude (decimal degrees), positive eastern hemisphere, negative (-) for western'
+    help='The longitude (degrees*minutes), positive eastern hemisphere, negative (-) for western'
 )
 
 arg_parser.add_argument(
@@ -289,8 +416,8 @@ args = arg_parser.parse_args()
 
 print('--- OAT Setup ---')
 print(f"Serial port: {args.serial_port}")
-print(f"Latitude: {args.latitude}\u00b0")
-print(f"Longitude: {args.longitude}\u00b0")
+print(f"Latitude: {args.latitude}")
+print(f"Longitude: {args.longitude}")
 
 #
 # Setup serial port connection
@@ -299,11 +426,20 @@ print(f"Longitude: {args.longitude}\u00b0")
 serial_port = open_oat_connection(args.serial_port)
 
 #
+# Set Site Coordinates
+#
+
+print('')
+print('- Set Site Coordinates -')
+oat_set_site_latitude(serial_port, args.latitude)
+oat_set_site_longitude(serial_port, args.longitude)
+
+#
 # Set Site Local Time, Date and UTC Offset
 #
 
-print("")
-print("- Set Site Local Time -")
+print('')
+print('- Set Site Local Time -')
 now = datetime.now().astimezone()
 oat_set_site_local_time(serial_port, now)
 oat_set_site_date(serial_port, now)
