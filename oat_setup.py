@@ -3,6 +3,7 @@
 import argparse
 import os
 import serial
+from datetime import datetime
 
 
 def oat_read_response(serial_port):
@@ -13,7 +14,8 @@ def oat_send_command(serial_port, command):
 
 
 def oat_read_response_status(serial_port, command):
-    return oat_read_response(serial_port) == '1'
+    response = oat_read_response(serial_port)
+    return len(response) > 0 and response[0] == '1'
         
 
 def oat_send_command_status(serial_port, command):
@@ -83,6 +85,127 @@ def close_oat_connection(serial_port):
     serial_port.close()
 
     print('OAT is disconnected!')
+
+
+def oat_set_site_local_time(serial_port, current_datetime):
+    formatted_time = current_datetime.strftime('%H:%M:%S')
+
+    # :SLHH:MM:SS#
+    #      Description:
+    #        Set Site Local Time
+    #      Information:
+    #        This sets the local time of the timezone in which the mount is located.
+    #      Returns:
+    #        "1"
+    #      Parameters:
+    #        "HH" is hours
+    #        "MM" is minutes
+    #        "SS" is seconds
+    if not oat_send_command_status(serial_port, f":SL{formatted_time}#"):
+        print('Error setting Site Local Time...')
+        quit()
+
+    # :GL#
+    #      Description:
+    #        Get local time in 24h format
+    #      Returns:
+    #        "HH:MM:SS#"
+    #      Parameters:
+    #        "HH" are hours
+    #        "MM" are minutes
+    #        "SS" are seconds of the local time
+    local_time_response = oat_send_command_string(serial_port, ':GL#')
+
+    print(f"Site Local Time set to: {local_time_response}")
+
+
+def oat_set_site_date(serial_port, current_datetime):
+    formatted_date = current_datetime.strftime('%m/%d/%y')
+
+    # :SCMM/DD/YY#
+    #      Description:
+    #        Set Site Date
+    #      Information:
+    #        This sets the date
+    #      Returns:
+    #        "1Updating Planetary Data#                              #"
+    #      Parameters:
+    #        "MM" is the month
+    #        "DD" is the day
+    #        "YY" is the year since 2000
+    if not oat_send_command_status(serial_port, f":SC{formatted_date}#"):
+        print('Error setting Site Date...')
+        quit()
+
+    # :GC#
+    #      Description:
+    #        Get current date
+    #      Returns:
+    #        "MM/DD/YY#"
+    #      Parameters:
+    #        "MM" is the month (1-12)
+    #        "day" is the day (1-31)
+    #        "year" is the lower two digits of the year
+    current_date_response = oat_send_command_string(serial_port, ':GC#')
+
+    if current_date_response != formatted_date:
+        print(f"Error verifying Site Date... expected [{formatted_date}#], got [{current_date_response}]")
+        quit()
+
+    print(f"Site Date set to: {current_date_response}")
+
+
+def oat_set_site_utc_offset(serial_port, current_datetime):
+    iso_8601_parts = current_datetime.isoformat().split('T')
+    if len(iso_8601_parts) != 2:
+        print('Error setting UTC Offset...')
+        quit()
+
+    sign = '+'
+    tz_split = iso_8601_parts[1].split(sign)
+    if len(tz_split) != 2:
+        sign = '-'
+        tz_split = iso_8601_parts[1].split(sign)
+        if len(tz_split) != 2:
+            print('Error setting UTC Offset...')
+            quit()
+
+    tz_parts = tz_split[1].split(':')
+    if len(tz_parts) != 2:
+        print('Error setting UTC Offset...')
+        quit()
+
+    tz_hour = sign + tz_parts[0]
+
+    # :SGsHH#
+    #      Description:
+    #        Set Site UTC Offset
+    #      Information:
+    #        This sets the offset of the timezone in which the mount is in hours from UTC.
+    #      Returns:
+    #        "1"
+    #      Parameters:
+    #        "s" is the sign
+    #        "HH" is the number of hours
+    if not oat_send_command_status(serial_port, f":SG{tz_hour}#"):
+        print('Error setting UTC Offset...')
+        quit()
+        
+    # :GG#
+    #      Description:
+    #        Get UTC offset time
+    #      Returns:
+    #        "sHH#"
+    #      Parameters:
+    #        "s" is the sign
+    #        "HH" are the number of hours that need to be added to local time to convert to UTC time
+    utc_offset_time_response = oat_send_command_string(serial_port, ':GG#')
+
+    if utc_offset_time_response != tz_hour:
+        print(f"Error verifying Site UTC Offset... expected [{tz_hour}], got [{utc_offset_time_response}]")
+        quit()
+
+    print(f"Site UTC Offset set to: {utc_offset_time_response}")
 
 
 def oat_autohome_ra(serial_port):
@@ -174,6 +297,17 @@ print(f"Longitude: {args.longitude}\u00b0")
 #
 
 serial_port = open_oat_connection(args.serial_port)
+
+#
+# Set Site Local Time, Date and UTC Offset
+#
+
+print("")
+print("- Set Site Local Time -")
+now = datetime.now().astimezone()
+oat_set_site_local_time(serial_port, now)
+oat_set_site_date(serial_port, now)
+oat_set_site_utc_offset(serial_port, now)
 
 #
 # AutoHome RA
