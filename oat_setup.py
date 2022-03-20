@@ -5,6 +5,7 @@ import math
 import os
 import re
 import serial
+import time
 from datetime import datetime
 
 
@@ -375,7 +376,16 @@ def oat_autohome_ra(serial_port):
         return
 
     print('RA Auto Home search started...')
-    input('Press ENTER when RA is homed!')
+
+    # Wait for OAT to complete homing
+    while True:    
+        time.sleep(0.5)
+        status_response = oat_send_command_string(serial_port, ':GX#')
+        status_split = status_response.split(',')
+        mount_state = status_split[0]
+        print(f"State: {mount_state}")
+        if mount_state != 'Homing':
+            break
 
     # :SHP#
     #      Description:
