@@ -378,12 +378,38 @@ def oat_autohome_ra(serial_port):
     print('RA Auto Home search started...')
 
     # Wait for OAT to complete homing
-    while True:    
+    while True:
         time.sleep(0.5)
+
+        # :GX#
+        #      Description:
+        #        Get Mount Status
+        #      Information:
+        #         String reflecting the mounts' status. The string is a comma-delimited list of statuses
+        #      Returns:
+        #        "Idle,--T--,11219,0,927,071906,+900000,#"
+        #      Parameters:
+        #        [0] The mount status. One of 'Idle', 'Parked', 'Parking', 'Guiding', 'SlewToTarget', 'FreeSlew', 'ManualSlew', 'Tracking', 'Homing'
+        #        [1] The motion state.
+        #        [2] The RA stepper position
+        #        [3] The DEC stepper position
+        #        [4] The Tracking stepper position
+        #        [5] The current RA position
+        #        [6] The current DEC position
+        #      Remarks:
+        #        The motion state
+        #        First character is RA slewing state ('R' is East, 'r' is West, '-' is stopped).
+        #        Second character is DEC slewing state ('d' is North, 'D' is South, '-' is stopped).
+        #        Third character is TRK slewing state ('T' is Tracking, '-' is stopped).
+        #        Fourth character is AZ slewing state ('Z' and 'z' is adjusting, '-' is stopped).
+        #        Fifth character is ALT slewing state ('A' and 'a' is adjusting, '-' is stopped).
+        #        Az and Alt are optional. The string may only be 3 characters long
         status_response = oat_send_command_string(serial_port, ':GX#')
+
         status_split = status_response.split(',')
         mount_state = status_split[0]
         print(f"State: {mount_state}")
+
         if mount_state != 'Homing':
             break
 
