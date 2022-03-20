@@ -71,7 +71,18 @@ def open_oat_connection(serial_port_path):
     if len(product_name) <= 0 or len(firmware_version) <= 0 :
         print('Could not connect to OAT, exiting...')
         quit()
-    
+
+    # :I#
+    #      Description:
+    #        Initialize Scope
+    #      Information:
+    #        This puts the Arduino in Serial Control Mode and displays RA on line 1 and
+    #        DEC on line 2 of the display. Serial Control Mode can be ended manually by
+    #        pressing the SELECT key, or programmatically with the :Qq# command.
+    #      Returns:
+    #        nothing
+    oat_send_command(serial_port, ':I#')
+
     print('OAT is connected!')
     print(f"Product Name: {product_name}")
     print(f"Firmware Version: {firmware_version}")
