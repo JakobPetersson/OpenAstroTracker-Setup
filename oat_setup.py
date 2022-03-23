@@ -159,7 +159,7 @@ def oat_set_site_latitude(serial_port, latitude):
 
 
 def oat_set_site_longitude(serial_port, longitude):
-    pat = re.compile(r"^[-\+]([0-9])?[0-9][0-9]\*[0-9][0-9]$")
+    pat = re.compile(r"^[-\+]([0-9])?([0-9])[0-9]\*[0-9][0-9]$")
 
     if not re.fullmatch(pat, longitude):
         print('Error, longitude not in correct format')
@@ -179,18 +179,7 @@ def oat_set_site_longitude(serial_port, longitude):
         print('Error, longitude not in correct value range')
         quit()
 
-    long_conv = math.modf((10800 - ((long_deg_int * 60.0) + long_min_int))/60) 
-    long_conv_deg = (int(long_conv[1]))
-    long_conv_deg_str = str(long_conv_deg)
-    long_conv_deg_zero = long_conv_deg_str.zfill(3)
-    long_conv_min_cal = int((long_conv[0]) * 60)
-    long_conv_min_cal_str = str(long_conv_min_cal)
-    long_conv_min_cal_zero = long_conv_min_cal_str.zfill(2)
-
-    # 180deg 00min 'minus' your LONG if positive or 'plus' if negative
-    long_abs = str(long_conv_deg_zero) + '*' + str(long_conv_min_cal_zero)
-
-    # :SgDDD*MM#
+    # :SgsDDD*MM#
     #      Description:
     #        Set Site Longitude
     #      Information:
@@ -199,11 +188,13 @@ def oat_set_site_longitude(serial_port, longitude):
     #        "1" if successfully set
     #        "0" otherwise
     #      Parameters:
-    #        "DDD" the nmber of degrees (0 to 360)
-    #        "MM" is minutes
+    #        "s" (optional) is the sign of the longitude (see Remarks)
+    #        "DDD" is the degrees
+    #        "MM" is the minutes
     #      Remarks:
-    #        Longitudes are from 0 to 360 going WEST. so 179W is 359 and 179E is 1.
-    if not oat_send_command_status(serial_port, f":Sg{long_abs}#"):
+    #        When a sign is provided, longitudes are interpreted as given, with zero at Greenwich but negative coordinates going east (opposite of normal cartographic coordinates)
+    #        When a sign is not provided, longitudes are from 0 to 360 going WEST with 180 at Greenwich. So 369 is 179W and 1 is 179E. 190 would be 10W and 170 would be 10E.
+    if not oat_send_command_status(serial_port, f":Sg{longitude}#"):
         print('Error setting Site Longitude...')
         quit()
 
@@ -211,16 +202,17 @@ def oat_set_site_longitude(serial_port, longitude):
     #      Description:
     #        Get Site Longitude
     #      Returns:
-    #        "DDD*MM#"
+    #        "sDDD*MM#"
     #      Parameters:
+    #        "s" is the sign of the longitude
     #        "DDD" is the longitude in degrees
     #        "MM" the minutes
     #      Remarks:
-    #        Longitudes are from 0 to 360 going WEST. so 179W is 359 and 179E is 1.
+    #        Note that this is the actual longitude, but east coordinates are negative (opposite of normal cartographic coordinates)
     site_longitude_response = oat_send_command_string(serial_port, ':Gg#')
 
-    if site_longitude_response != long_abs:
-        print(f"Error verifying Site Longitude... expected [{long_abs}], got [{site_longitude_response}]")
+    if site_longitude_response != longitude:
+        print(f"Error verifying Site Longitude... expected [{longitude}], got [{site_longitude_response}]")
         quit()
 
     print(f"Site Longitude set to: {long_deg}\u00b0{long_min}' ({site_longitude_response})")
@@ -332,12 +324,14 @@ def oat_set_site_utc_offset(serial_port, current_datetime):
         
     # :GG#
     #      Description:
-    #        Get UTC offset time
+    #        Get offset to UTC time
     #      Returns:
     #        "sHH#"
     #      Parameters:
     #        "s" is the sign
-    #        "HH" are the number of hours that need to be added to local time to convert to UTC time
+    #        "HH" is the number of hours
+    #      Remarks
+    #        Note that this is NOT simply the timezone offset you are in (like -8 for Pacific Standard Time), it is the negative of it. So how many hours need to be added to your local time to get to UTC.
     utc_offset_time_response = oat_send_command_string(serial_port, ':GG#')
 
     if utc_offset_time_response != tz_hour:
@@ -434,17 +428,19 @@ def oat_autohome_ra(serial_port):
 arg_parser = argparse.ArgumentParser(description='OAT Setup')
 
 arg_parser.add_argument(
-    'latitude',
+    '--latitude',
     type=str,
     action='store',
-    help='The latitude <sign><deg>*<min>, positive (+) for northern hemisphere, negative (-) for southern'
+    default='+51*28',
+    help='The latitude sDDD*MM, positive (+) for northern hemisphere, negative (-) for southern (default: %(default)s)'
 )
 
 arg_parser.add_argument(
-    'longitude',
+    '--longitude',
     type=str,
     action='store',
-    help='The longitude <sign><deg>*<min>, positive (+) for eastern hemisphere, negative (-) for western'
+    default='+00*00',
+    help='The longitude sDD*MM, positive (+) for western hemisphere, negative (-) for eastern (default: %(default)s)'
 )
 
 arg_parser.add_argument(

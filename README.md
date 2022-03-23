@@ -13,21 +13,26 @@ Python scripts to setup and align [OpenAstroTracker](https://openastrotech.com/)
 
 ```shell
 ./oat_setup.py --help
-usage: oat_setup.py [-h] latitude longitude [serial_port]
+usage: oat_setup.py [-h] [--latitude LATITUDE] [--longitude LONGITUDE]
+                    [serial_port]
 
 OAT Setup
 
 positional arguments:
-  latitude     The latitude <sign><deg>*<min>, positive (+) for northern hemisphere, negative (-) for southern
-  longitude    The longitude <sign><deg>*<min>, positive (+) for eastern hemisphere, negative (-) for western
-  serial_port  The serial port path (default: /dev/ttyUSB0)
+  serial_port           The serial port path (default: /dev/ttyUSB0)
 
 optional arguments:
-  -h, --help   show this help message and exit
+  -h, --help            show this help message and exit
+  --latitude LATITUDE   The latitude sDDD*MM, positive (+) for northern
+                        hemisphere, negative (-) for southern (default:
+                        +51*28)
+  --longitude LONGITUDE
+                        The longitude sDD*MM, positive (+) for western
+                        hemisphere, negative (-) for eastern (default: +00*00)
 ```
 
 ### Example
 
 ```shell
-./oat_setup.py "+59.19" "+18.04" /dev/ttyUSB0
+./oat_setup.py --latitude="+59*19" --longitude="+18*04" /dev/ttyUSB0
 ```
